@@ -40,6 +40,9 @@ typedef struct {
     http_parser_settings    *settings;
     http_header             *header;
     int                     have_body;
+    int                     body_started;
+    int                     need_decode;
+    int                     need_decompress;
 } connection_context;
 
 
@@ -82,15 +85,34 @@ int _on_headers_complete(http_parser *parser) {
             skip = CALLBACKS->http_response_received(ID, NULL, 0);
             break;
         default:
-            /**!-TODO: It's impossible in theory, some error handling needed... */
             break;
     }
     /**!-TODO: Handle message skipping here. */
+
     return 0;
 }
 
 int _on_body(http_parser *parser, const char *at, size_t length) {
     CONTEXT->have_body = 1;
+    
+    switch (parser->type) {
+        case HTTP_REQUEST:
+            if (CONTEXT->body_started == 0) {
+                CALLBACKS->http_request_body_started(ID, NULL, 0);
+            }
+            CALLBACKS->http_request_body_data(ID, NULL, 0);
+            break;
+        case HTTP_RESPONSE:
+            if (CONTEXT->body_started == 0) {
+                CALLBACKS->http_response_body_started(ID, NULL, 0);
+            }
+            CALLBACKS->http_response_body_data(ID, NULL, 0);
+            break;
+        default:
+            break;
+    }
+
+    CONTEXT->body_started = 1;
     return 0;
 }
 
@@ -104,23 +126,50 @@ int _on_message_complete(http_parser *parser) {
                 CALLBACKS->http_response_body_finished(ID, NULL, 0);
                 break;
             default:
-                /**!-TODO: It's impossible in theory, some error handling needed... */
                 break;
         }
     }
 
     /* Re-init parser before next message. */
     http_parser_init(parser, HTTP_BOTH);
+
+    CONTEXT->header = NULL;
     CONTEXT->have_body = 0;
+    CONTEXT->body_started = 0;
+    CONTEXT->need_decode = 0;
+    CONTEXT->need_decompress = 0;
 
     return 0;
 }
 
 int _on_chunk_header(http_parser *parser) {
+    if (CONTEXT->body_started == 0) {
+        switch (parser->type) {
+            case HTTP_REQUEST:
+                CALLBACKS->http_request_body_started(ID, NULL, 0);
+                break;
+            case HTTP_RESPONSE:
+                CALLBACKS->http_response_body_started(ID, NULL, 0);
+                break;
+            default:
+                break;
+        }
+        CONTEXT->body_started = 1;
+    }
     return 0;
 }
 
 int _on_chunk_complete(http_parser *parser) {
+    switch (parser->type) {
+        case HTTP_REQUEST:
+            CALLBACKS->http_request_body_data(ID, NULL, 0);
+            break;
+        case HTTP_RESPONSE:
+            CALLBACKS->http_response_body_data(ID, NULL, 0);
+            break;
+        default:
+            break;
+    }
     return 0;
 }
 
@@ -173,7 +222,7 @@ int input(connection_id id, transfer_direction direction, const char *data,
     done = http_parser_execute (context->parser, context->settings,
                                 data, length);
     
-    printf ("http_parser_execute - parsed %ld/%ld bytes.\n", done, length);
+    //printf ("http_parser_execute - parsed %ld/%ld bytes.\n", done, length);
     return 0;
 }
 
