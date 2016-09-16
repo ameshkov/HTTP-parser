@@ -38,14 +38,19 @@ typedef struct {
     parser_callbacks        *callbacks;
     http_parser             *parser;
     http_parser_settings    *settings;
+    http_header             *header;
+    int                     have_body;
 } connection_context;
 
-#define CONTEXT   ((connection_context*)parser->data)
-#define CALLBACKS ((CONTEXT)->callbacks)
 
 /*
  *  Node.js http_parser's callbacks (parser->settings)
  */
+
+/* For in-callback using only! */
+#define CONTEXT   ((connection_context*)parser->data)
+#define ID        ((CONTEXT)->id)
+#define CALLBACKS ((CONTEXT)->callbacks)
 
 int _on_message_begin(http_parser *parser) {
     return 0;
@@ -71,10 +76,10 @@ int _on_headers_complete(http_parser *parser) {
     int skip = 0;
     switch (parser->type) {
         case HTTP_REQUEST:
-            skip = CALLBACKS->http_request_received(CONTEXT->id, NULL, 0);
+            skip = CALLBACKS->http_request_received(ID, NULL, 0);
             break;
         case HTTP_RESPONSE:
-            skip = CALLBACKS->http_response_received(CONTEXT->id, NULL, 0);
+            skip = CALLBACKS->http_response_received(ID, NULL, 0);
             break;
         default:
             /**!-TODO: It's impossible in theory, some error handling needed... */
@@ -85,11 +90,29 @@ int _on_headers_complete(http_parser *parser) {
 }
 
 int _on_body(http_parser *parser, const char *at, size_t length) {
+    CONTEXT->have_body = 1;
     return 0;
 }
 
 int _on_message_complete(http_parser *parser) {
+    if (CONTEXT->have_body) {
+        switch (parser->type) {
+            case HTTP_REQUEST:
+                CALLBACKS->http_request_body_finished(ID, NULL, 0);
+                break;
+            case HTTP_RESPONSE:
+                CALLBACKS->http_response_body_finished(ID, NULL, 0);
+                break;
+            default:
+                /**!-TODO: It's impossible in theory, some error handling needed... */
+                break;
+        }
+    }
+
+    /* Re-init parser before next message. */
     http_parser_init(parser, HTTP_BOTH);
+    CONTEXT->have_body = 0;
+
     return 0;
 }
 
@@ -124,6 +147,7 @@ connection_context *context = NULL;
 int connect(connection_id id, connection_info *info,
             parser_callbacks *callbacks) {
     context = malloc(sizeof(connection_context));
+    memset (context, 0, sizeof(connection_context));
     
     context->id = id;
     context->info = info;
