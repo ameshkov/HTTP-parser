@@ -60,7 +60,6 @@ typedef struct {
 /*
  *  General parser interface:
  */
-
 int connect(connection_id id, connection_info *info,
             parser_callbacks *callbacks);
 
@@ -75,7 +74,7 @@ int close(connection_id id);
  *  Utility methods
  */
 
-/* To be continued... */
+/*  To be continued... */
 
 #ifdef __cplusplus
 }

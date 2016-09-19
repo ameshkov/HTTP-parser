@@ -9,7 +9,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 /*
  *  Debug helpers:
  */
@@ -19,11 +18,11 @@
     printf ("DEBUG: Parser error: %s\n", \
             http_errno_name(parser->http_errno));
 
-#define DBG_HTTP_CALLBACK
+#define DBG_HTTP_CALLBACK_1
 
-#define DBG_HTTP_CALLBACK_1 \
-    printf ("DEBUG: %s\n", __FUNCTION__); \
-    DBG_PARSER_ERROR
+#define DBG_HTTP_CALLBACK \
+    printf ("DEBUG: %s\n", __FUNCTION__);
+//    DBG_PARSER_ERROR
 
 #define DBG_HTTP_CALLBACK_DATA \
     printf ("DEBUG: %s\n", __FUNCTION__); \
@@ -37,9 +36,14 @@
     printf ("DEBUG: Parser type: %d\n", parser->type);
 
 /*
+ *  Goods:
+ */
+#define MIN(a,b) a < b ? a : b
+#define MAX(a,b) a > b ? a : b
+
+/*
  *  Private stuff:
  */
-
 typedef struct {
     connection_id           id;
     connection_info         *info;
@@ -56,9 +60,8 @@ typedef struct {
 
 
 /*
- *  Node.js http_parser's callbacks (parser->settings)
+ *  Node.js http_parser's callbacks (parser->settings):
  */
-
 /* For in-callback using only! */
 #define CONTEXT   ((connection_context*)parser->data)
 #define ID        ((CONTEXT)->id)
@@ -210,7 +213,6 @@ connection_context *context = NULL;
 /*
  *  API implementaion:
  */
-
 int connect(connection_id id, connection_info *info,
             parser_callbacks *callbacks) {
     context = malloc(sizeof(connection_context));
@@ -238,6 +240,7 @@ int disconnect(connection_id id, transfer_direction direction) {
 
 int input(connection_id id, transfer_direction direction, const char *data,
           size_t length) {
+    length = strnlen(data, length);
     context->done = 0;
 
     if (HTTP_PARSER_ERRNO(context->parser) != HPE_OK) {
@@ -249,8 +252,11 @@ int input(connection_id id, transfer_direction direction, const char *data,
 
     while (context->done < length)
     {
+        // /printf ("ERROR 1 : done %d/%d\n", context->done, length);
+//        printf (">>>\n%s\n<<<\n", data + context->done);
         if (HTTP_PARSER_ERRNO(context->parser) != HPE_OK) {
-            http_parser_init(context->parser, HTTP_BOTH);    
+            http_parser_init(context->parser, HTTP_BOTH);
+            //printf ("ERROR 2\n");
         }
         http_parser_execute (context->parser, context->settings,
                              data + context->done, INPUT_LENGTH_AT_ERROR);

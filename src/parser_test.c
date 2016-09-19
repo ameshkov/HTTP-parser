@@ -20,7 +20,6 @@
 /*
  *  User-defined callback for testing;
  */
-
 int request_received(connection_id id, void *data, size_t length) {
     DBG_CALLBACK
     return 0;
