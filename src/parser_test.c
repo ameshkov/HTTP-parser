@@ -8,6 +8,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+
+#define INPUT_PORTION 150
+
 /*
  *  Helpers:
  */
@@ -70,8 +73,6 @@ parser_callbacks test_callbacks = {
     response_body_finished
 };
 
-
-#define INPUT_PORTION 128
 
 int main(int argc, char **argv) {
     int pos = 0, length = strlen (test_stream);

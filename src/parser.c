@@ -13,9 +13,17 @@
 /*
  *  Debug helpers:
  */
+#define DEBUG 1
 
-#define DBG_HTTP_CALLBACK \
-     printf ("DEBUG: %s\n", __FUNCTION__); \
+#define DBG_PARSER_ERROR \
+    printf ("DEBUG: Parser error: %s\n", \
+            http_errno_name(parser->http_errno));
+
+#define DBG_HTTP_CALLBACK
+
+#define DBG_HTTP_CALLBACK_1 \
+    printf ("DEBUG: %s\n", __FUNCTION__); \
+    DBG_PARSER_ERROR
 
 #define DBG_HTTP_CALLBACK_DATA \
     printf ("DEBUG: %s\n", __FUNCTION__); \
@@ -23,10 +31,10 @@
     memset (out, 0, length + 1); \
     memcpy (out, at, length); \
     printf("%s\n", out); \
-    free(out); \
+    free(out); 
 
 #define DBG_PARSER_TYPE \
-    printf ("DEBUG: Parser type: %d\n", parser->type); 
+    printf ("DEBUG: Parser type: %d\n", parser->type);
 
 /*
  *  Private stuff:
@@ -39,6 +47,7 @@ typedef struct {
     http_parser             *parser;
     http_parser_settings    *settings;
     http_header             *header;
+    size_t                  done;
     int                     have_body;
     int                     body_started;
     int                     need_decode;
@@ -56,26 +65,32 @@ typedef struct {
 #define CALLBACKS ((CONTEXT)->callbacks)
 
 int _on_message_begin(http_parser *parser) {
+    DBG_HTTP_CALLBACK
     return 0;
 }
 
 int _on_url(http_parser *parser, const char *at, size_t length) {
+    DBG_HTTP_CALLBACK
     return 0;
 }
 
 int _on_status(http_parser *parser, const char *at, size_t length) {
+    DBG_HTTP_CALLBACK
     return 0;
 }
 
 int _on_header_field(http_parser *parser, const char *at, size_t length) {
+    DBG_HTTP_CALLBACK
     return 0;
 }
 
 int _on_header_value(http_parser *parser, const char *at, size_t length) {
+    DBG_HTTP_CALLBACK
     return 0;
 }
 
 int _on_headers_complete(http_parser *parser) {
+    DBG_HTTP_CALLBACK
     int skip = 0;
     switch (parser->type) {
         case HTTP_REQUEST:
@@ -93,8 +108,8 @@ int _on_headers_complete(http_parser *parser) {
 }
 
 int _on_body(http_parser *parser, const char *at, size_t length) {
+    DBG_HTTP_CALLBACK
     CONTEXT->have_body = 1;
-    
     switch (parser->type) {
         case HTTP_REQUEST:
             if (CONTEXT->body_started == 0) {
@@ -117,6 +132,7 @@ int _on_body(http_parser *parser, const char *at, size_t length) {
 }
 
 int _on_message_complete(http_parser *parser) {
+    DBG_HTTP_CALLBACK
     if (CONTEXT->have_body) {
         switch (parser->type) {
             case HTTP_REQUEST:
@@ -143,6 +159,7 @@ int _on_message_complete(http_parser *parser) {
 }
 
 int _on_chunk_header(http_parser *parser) {
+    DBG_HTTP_CALLBACK
     if (CONTEXT->body_started == 0) {
         switch (parser->type) {
             case HTTP_REQUEST:
@@ -160,6 +177,7 @@ int _on_chunk_header(http_parser *parser) {
 }
 
 int _on_chunk_complete(http_parser *parser) {
+    DBG_HTTP_CALLBACK
     switch (parser->type) {
         case HTTP_REQUEST:
             CALLBACKS->http_request_body_data(ID, NULL, 0);
@@ -216,13 +234,29 @@ int disconnect(connection_id id, transfer_direction direction) {
     return 0;
 }
 
+#define INPUT_LENGTH_AT_ERROR 1
+
 int input(connection_id id, transfer_direction direction, const char *data,
           size_t length) {
-    size_t done;
-    done = http_parser_execute (context->parser, context->settings,
-                                data, length);
-    
-    //printf ("http_parser_execute - parsed %ld/%ld bytes.\n", done, length);
+    context->done = 0;
+
+    if (HTTP_PARSER_ERRNO(context->parser) != HPE_OK) {
+        http_parser_init(context->parser, HTTP_BOTH);    
+    }
+
+    context->done = http_parser_execute (context->parser, context->settings,
+                                         data, length);
+
+    while (context->done < length)
+    {
+        if (HTTP_PARSER_ERRNO(context->parser) != HPE_OK) {
+            http_parser_init(context->parser, HTTP_BOTH);    
+        }
+        http_parser_execute (context->parser, context->settings,
+                             data + context->done, INPUT_LENGTH_AT_ERROR);
+        context->done+=INPUT_LENGTH_AT_ERROR;
+    }
+
     return 0;
 }
 

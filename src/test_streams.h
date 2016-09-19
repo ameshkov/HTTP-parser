@@ -2,6 +2,31 @@
 #define TEST_STREAMS_H
 
 const char *test_stream = 
+		"GET /test HTTP/1.1\r\n"
+        "User-Agent: curl/7.18.0 (i486-pc-linux-gnu) libcurl/7.18.0 OpenSSL/0.9.8g zlib/1.2.3.3 libidn/1.1\r\n"
+		"\r\n"
+		"sdasdasds"
+		"GET /test HTTP/1.1\r\n"
+        "User-Agent: curl/7.18.0 (i486-pc-linux-gnu) libcurl/7.18.0 OpenSSL/0.9.8g zlib/1.2.3.3 libidn/1.1\r\n"
+        "Host: 0.0.0.0=5000\r\n"
+        "Accept: */*\r\n"
+        "\r\n"
+		"GET /demo HTTP/1.1\r\n"
+		"Host: example.com\r\n"
+		"Connection: Upgrade\r\n"
+		"Sec-WebSocket-Key2: 12998 5 Y3 1  .P00\r\n"
+		"Sec-WebSocket-Protocol: sample\r\n"
+		"Upgrade: WebSocket\r\n"
+		"Sec-WebSocket-Key1: 4 @1  46546xW%0l 1 5\r\n"
+		"Origin: http://example.com\r\n"
+		"\r\n"
+		"Hot diggity dogg"
+        "\rwssw\n"
+        "GET /test HTTP/1.1\r\n"
+        "User-Agent: curl/7.18.0 (i486-pc-linux-gnu) libcurl/7.18.0 OpenSSL/0.9.8g zlib/1.2.3.3 libidn/1.1\r\n"
+        "Host: 0.0.0.0=5000\r\n"
+        "Accept: */*\r\n"
+        "\r\n"
         "HTTP/1.1 200 OK\r\n"
         "Content-Type: text/plain\r\n"
         "Transfer-Encoding: chunked\r\n"
@@ -14,6 +39,9 @@ const char *test_stream =
         "\r\n"
         "0  \r\n"
         "\r\n"
+;const char *test_stream_0 =
+
+//;const char *test_stream_0 =
         "HTTP/1.1 301 Moved Permanently\r\n"
         "Location: http://www.google.com/\r\n"
         "Content-Type: text/html; charset=UTF-8\r\n"
