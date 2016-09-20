@@ -12,26 +12,32 @@
 /*
  *  Debug helpers:
  */
-#define DEBUG 1
+#define DEBUG 0
 
-#define DBG_PARSER_ERROR \
-    printf ("DEBUG: Parser error: %s\n", \
-            http_errno_name(parser->http_errno));
+#if !DEBUG
+#   define DBG_PARSER_ERROR
+#   define DBG_HTTP_CALLBACK
+#   define DBG_HTTP_CALLBACK_DATA
+#   define DBG_PARSER_TYPE
+#else
+#   define DBG_PARSER_ERROR                                                 \
+        printf ("DEBUG: Parser error: %s\n",                                \
+                http_errno_name(parser->http_errno));
 
-#define DBG_HTTP_CALLBACK \
-    printf ("DEBUG: %s\n", __FUNCTION__);
-//    DBG_PARSER_ERROR
+#   define DBG_HTTP_CALLBACK                                                \
+        printf ("DEBUG: %s\n", __FUNCTION__);
 
-#define DBG_HTTP_CALLBACK_DATA \
-    printf ("DEBUG: %s: ", __FUNCTION__); \
-    char *out = malloc ((length + 1) * sizeof(char)); \
-    memset (out, 0, length + 1); \
-    memcpy (out, at, length); \
-    printf("%s\n", out); \
-    free(out); 
+#   define DBG_HTTP_CALLBACK_DATA                                           \
+        printf ("DEBUG: %s: ", __FUNCTION__);                               \
+        char *out = malloc ((length + 1) * sizeof(char));                   \
+        memset (out, 0, length + 1);                                        \
+        memcpy (out, at, length);                                           \
+        printf("%s\n", out);                                                \
+        free(out); 
 
-#define DBG_PARSER_TYPE \
-    printf ("DEBUG: Parser type: %d\n", parser->type);
+#   define DBG_PARSER_TYPE                                                  \
+        printf ("DEBUG: Parser type: %d\n", parser->type);
+#endif
 
 /*
  *  Goods:
@@ -104,24 +110,33 @@ typedef struct {
  *  Node.js http_parser's callbacks (parser->settings):
  */
 /* For in-callback using only! */
-#define CONTEXT   ((connection_context*)parser->data)
-#define ID        (CONTEXT->id)
-#define CALLBACKS (CONTEXT->callbacks)
-#define IN_FIELD  (CONTEXT->in_field)
+#define CONTEXT         ((connection_context*)parser->data)
+#define ID              (CONTEXT->id)
+#define CALLBACKS       (CONTEXT->callbacks)
+#define IN_FIELD        (CONTEXT->in_field)
+#define HAVE_BODY       (CONTEXT->have_body)
+#define BODY_STARTED    (CONTEXT->body_started)
+#define NEED_DECODE     (CONTEXT->need_decode)
+#define NEED_DECOMPRESS (CONTEXT->need_decompress)
+
 #define HEADER    (CONTEXT->header)
 #define URL       (HEADER->url)
 #define STATUS    (HEADER->status)
 #define PARAMC    (HEADER->paramc)
 #define PARAMV    (HEADER->paramv)
 
+
+/*
+ *  Internal callbacks:
+ */
 int _on_message_begin(http_parser *parser) {
-    //DBG_HTTP_CALLBACK
+    DBG_HTTP_CALLBACK
     CREATE_HTTP_HEADER(HEADER);
     return 0;
 }
 
 int _on_url(http_parser *parser, const char *at, size_t length) {
-    //DBG_HTTP_CALLBACK_DATA
+    DBG_HTTP_CALLBACK_DATA
     if (at != NULL && length > 0) {
         APPEND_CHARS(URL, at, length);
     }
@@ -129,7 +144,7 @@ int _on_url(http_parser *parser, const char *at, size_t length) {
 }
 
 int _on_status(http_parser *parser, const char *at, size_t length) {
-    //DBG_HTTP_CALLBACK_DATA
+    DBG_HTTP_CALLBACK_DATA
     if (at != NULL && length > 0) {
         APPEND_CHARS(STATUS, at, length);
     }
@@ -137,7 +152,7 @@ int _on_status(http_parser *parser, const char *at, size_t length) {
 }
 
 int _on_header_field(http_parser *parser, const char *at, size_t length) {
-    //DBG_HTTP_CALLBACK
+    DBG_HTTP_CALLBACK
     if (at != NULL && length > 0) {
         if (!IN_FIELD) {
             IN_FIELD = 1;
@@ -149,7 +164,7 @@ int _on_header_field(http_parser *parser, const char *at, size_t length) {
 }
 
 int _on_header_value(http_parser *parser, const char *at, size_t length) {
-    //BG_HTTP_CALLBACK
+    DBG_HTTP_CALLBACK
     IN_FIELD = 0;
     if (at != NULL && length > 0) {
         APPEND_CHARS(PARAMV[PARAMC - 1].value, at, length);
@@ -174,24 +189,22 @@ int _on_headers_complete(http_parser *parser) {
     }
 
     DESTROY_HTTP_HEADER(HEADER);
-
-    /**!-TODO: Handle message skipping here. */
-
-    return 0;
+    
+    return skip;
 }
 
 int _on_body(http_parser *parser, const char *at, size_t length) {
-    //DBG_HTTP_CALLBACK_DATA
-    CONTEXT->have_body = 1;
+    DBG_HTTP_CALLBACK_DATA
+    HAVE_BODY = 1;
     switch (parser->type) {
         case HTTP_REQUEST:
-            if (CONTEXT->body_started == 0) {
+            if (BODY_STARTED == 0) {
                 CALLBACKS->http_request_body_started(ID, NULL, 0);
             }
             CALLBACKS->http_request_body_data(ID, NULL, 0);
             break;
         case HTTP_RESPONSE:
-            if (CONTEXT->body_started == 0) {
+            if (BODY_STARTED == 0) {
                 CALLBACKS->http_response_body_started(ID, NULL, 0);
             }
             CALLBACKS->http_response_body_data(ID, NULL, 0);
@@ -200,13 +213,13 @@ int _on_body(http_parser *parser, const char *at, size_t length) {
             break;
     }
 
-    CONTEXT->body_started = 1;
+    BODY_STARTED = 1;
     return 0;
 }
 
 int _on_message_complete(http_parser *parser) {
-    //DBG_HTTP_CALLBACK
-    if (CONTEXT->have_body) {
+    DBG_HTTP_CALLBACK
+    if (HAVE_BODY) {
         switch (parser->type) {
             case HTTP_REQUEST:
                 CALLBACKS->http_request_body_finished(ID, NULL, 0);
@@ -223,17 +236,17 @@ int _on_message_complete(http_parser *parser) {
     http_parser_init(parser, HTTP_BOTH);
 
     CONTEXT->header = NULL;
-    CONTEXT->have_body = 0;
-    CONTEXT->body_started = 0;
-    CONTEXT->need_decode = 0;
-    CONTEXT->need_decompress = 0;
+    HAVE_BODY = 0;
+    BODY_STARTED = 0;
+    NEED_DECODE = 0;
+    NEED_DECOMPRESS = 0;
 
     return 0;
 }
 
 int _on_chunk_header(http_parser *parser) {
-    //DBG_HTTP_CALLBACK
-    if (CONTEXT->body_started == 0) {
+    DBG_HTTP_CALLBACK
+    if (BODY_STARTED == 0) {
         switch (parser->type) {
             case HTTP_REQUEST:
                 CALLBACKS->http_request_body_started(ID, NULL, 0);
@@ -244,13 +257,13 @@ int _on_chunk_header(http_parser *parser) {
             default:
                 break;
         }
-        CONTEXT->body_started = 1;
+        BODY_STARTED = 1;
     }
     return 0;
 }
 
 int _on_chunk_complete(http_parser *parser) {
-    //DBG_HTTP_CALLBACK
+    DBG_HTTP_CALLBACK
     switch (parser->type) {
         case HTTP_REQUEST:
             CALLBACKS->http_request_body_data(ID, NULL, 0);
@@ -322,11 +335,8 @@ int input(connection_id id, transfer_direction direction, const char *data,
 
     while (context->done < length)
     {
-        // /printf ("ERROR 1 : done %d/%d\n", context->done, length);
-//        printf (">>>\n%s\n<<<\n", data + context->done);
         if (HTTP_PARSER_ERRNO(context->parser) != HPE_OK) {
             http_parser_init(context->parser, HTTP_BOTH);
-            //printf ("ERROR 2\n");
         }
         http_parser_execute (context->parser, context->settings,
                              data + context->done, INPUT_LENGTH_AT_ERROR);
