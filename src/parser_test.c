@@ -17,11 +17,22 @@
 #define DBG_CALLBACK \
      printf ("CALLBACK [%s]:\n", __FUNCTION__);
 
+void print_header(http_header *header) {
+    if (!header) return;
+    if (header->url) printf("URL: %s\n", header->url);
+    if (header->status) printf("STATUS: %s\n", header->status);
+    for (int i = 0; i < header->paramc; i++) {
+        printf ("%s: %s\n", header->paramv[i].field, header->paramv[i].value);
+    }
+    return;
+}
+
 /*
  *  User-defined callback for testing;
  */
 int request_received(connection_id id, void *data, size_t length) {
     DBG_CALLBACK
+    print_header((http_header *)data);
     return 0;
 }
 
@@ -42,6 +53,7 @@ int request_body_finished(connection_id id, void *data, size_t length) {
 
 int response_received(connection_id id, void *data, size_t length) {
     DBG_CALLBACK
+    print_header((http_header *)data);
     return 0;
 }
 
