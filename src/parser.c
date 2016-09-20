@@ -25,7 +25,7 @@
 //    DBG_PARSER_ERROR
 
 #define DBG_HTTP_CALLBACK_DATA \
-    printf ("DEBUG: %s\n", __FUNCTION__); \
+    printf ("DEBUG: %s: ", __FUNCTION__); \
     char *out = malloc ((length + 1) * sizeof(char)); \
     memset (out, 0, length + 1); \
     memcpy (out, at, length); \
@@ -41,6 +41,19 @@
 #define MIN(a,b) a < b ? a : b
 #define MAX(a,b) a > b ? a : b
 
+#define APPEND_CHARS(dst, src, len)                                 \
+    size_t old_len;                                                 \
+    if (dst == NULL) {                                              \
+        dst = malloc ((len + 1) * sizeof(char));                    \
+        memset(dst, 0 , len + 1);                                   \
+        memcpy(dst, at, len);                                       \
+    } else {                                                        \
+        old_len = strlen(dst);                                      \
+        dst = realloc (dst, (old_len + len + 1) * sizeof(char));    \
+        memset(dst + old_len, 0, len + 1);                          \
+        memcpy(dst + old_len, src, len);                            \
+    }
+
 /*
  *  Private stuff:
  */
@@ -51,6 +64,7 @@ typedef struct {
     http_parser             *parser;
     http_parser_settings    *settings;
     http_header             *header;
+    int                     in_field;
     size_t                  done;
     int                     have_body;
     int                     body_started;
@@ -66,29 +80,38 @@ typedef struct {
 #define CONTEXT   ((connection_context*)parser->data)
 #define ID        ((CONTEXT)->id)
 #define CALLBACKS ((CONTEXT)->callbacks)
+#define HEADER    ((CONTEXT)->header)
+
+
 
 int _on_message_begin(http_parser *parser) {
     DBG_HTTP_CALLBACK
+    CONTEXT->header = malloc(sizeof(http_header));
+    memset(CONTEXT->header, 0, sizeof(http_header));
     return 0;
 }
 
 int _on_url(http_parser *parser, const char *at, size_t length) {
-    DBG_HTTP_CALLBACK
+    DBG_HTTP_CALLBACK_DATA
+    APPEND_CHARS(CONTEXT->header->url, at, length);
+    printf ("URL: <%s>\n", CONTEXT->header->url);
     return 0;
 }
 
 int _on_status(http_parser *parser, const char *at, size_t length) {
-    DBG_HTTP_CALLBACK
+    DBG_HTTP_CALLBACK_DATA
+    APPEND_CHARS(CONTEXT->header->status, at, length);
+    printf ("STATUS: <%s>\n", CONTEXT->header->status);
     return 0;
 }
 
 int _on_header_field(http_parser *parser, const char *at, size_t length) {
-    DBG_HTTP_CALLBACK
+    DBG_HTTP_CALLBACK_DATA
     return 0;
 }
 
 int _on_header_value(http_parser *parser, const char *at, size_t length) {
-    DBG_HTTP_CALLBACK
+    DBG_HTTP_CALLBACK_DATA
     return 0;
 }
 
@@ -111,7 +134,7 @@ int _on_headers_complete(http_parser *parser) {
 }
 
 int _on_body(http_parser *parser, const char *at, size_t length) {
-    DBG_HTTP_CALLBACK
+    DBG_HTTP_CALLBACK_DATA
     CONTEXT->have_body = 1;
     switch (parser->type) {
         case HTTP_REQUEST:

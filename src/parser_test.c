@@ -9,7 +9,7 @@
 #include <string.h>
 
 
-#define INPUT_PORTION 150
+#define INPUT_PORTION 1024
 
 /*
  *  Helpers:

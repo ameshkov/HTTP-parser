@@ -19,7 +19,10 @@ typedef struct {
 } http_header_parameter;
 
 typedef struct {
-    http_header_parameter **params;
+    char *url;
+    char *status;
+    unsigned int            paramc;
+    http_header_parameter   *paramv;
 } http_header;
 
 typedef unsigned long connection_id;
