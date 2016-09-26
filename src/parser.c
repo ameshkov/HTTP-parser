@@ -49,18 +49,33 @@
     header = malloc(sizeof(http_header));                                   \
     memset(header, 0, sizeof(http_header));
 
+#define CREATE_HTTP_MESSAGE(message)                                        \
+    message = malloc(sizeof(http_message));                                 \
+    memset(message, 0, sizeof(http_message));                               \
+    CREATE_HTTP_HEADER(message->header);
+
+#define CREATE_HTTP_MESSAGE_NO_HEADER(message)                              \
+    message = malloc(sizeof(http_message));                                 \
+    memset(message, 0, sizeof(http_message));
+
 #define DESTROY_HTTP_HEADER(header)                                         \
-    http_header *hdr=header;                                                \
-    if (hdr) {                                                              \
-        if (hdr->url) free(hdr->url);                                       \
-        if (hdr->status) free(hdr->status);                                 \
-        for (int i = 0; i < hdr->paramc; i++) {                             \
-            if (hdr->paramv[i].field) free(hdr->paramv[i].field);           \
-            if (hdr->paramv[i].value) free(hdr->paramv[i].value);           \
-        }                                                                   \
-        if (hdr->paramv) free(hdr->paramv);                                 \
-        free (hdr);                                                         \
-        header=NULL;                                                        \
+    if (header->url) free(header->url);                                     \
+    if (header->status) free(header->status);                               \
+    for (int i = 0; i < header->paramc; i++) {                              \
+        if (header->paramv[i].field) free(header->paramv[i].field);         \
+        if (header->paramv[i].value) free(header->paramv[i].value);         \
+    }                                                                       \
+    if (header->paramv) free(header->paramv);                               \
+    free (header);                                                          \
+    header=NULL;
+
+#define DESTROY_HTTP_MESSAGE(message)                                       \
+    if (message) {                                                          \
+        DESTROY_HTTP_HEADER(message->header);                               \
+        if (message->body) free(message->body);                             \
+        message->body = NULL;                                               \
+        free(message);                                                      \
+        message = NULL;                                                     \
     }
 
 #define APPEND_HTTP_HEADER_PARAM(paramc, paramv)                            \
@@ -73,17 +88,34 @@
         memset(&(paramv[paramc - 1]), 0, sizeof(http_header_parameter));    \
     }
 
+#define APPEND_HTTP_CHUNK(chunkc, chunkv)                                   \
+    chunkc++;                                                               \
+    if (chunkv == NULL) {                                                   \
+        chunkv = malloc(sizeof(http_chunk));                                \
+        memset(chunkv, 0, sizeof(http_chunk));                              \
+    } else {                                                                \
+        chunkv = realloc(chunkv, chunkc * sizeof(http_chunk));              \
+        memset(&(chunkv[chunkc - 1]), 0, sizeof(http_chunk));               \
+    }
+
 #define APPEND_CHARS(dst, src, len)                                         \
     size_t old_len;                                                         \
     if (dst == NULL) {                                                      \
         dst = malloc ((len + 1) * sizeof(char));                            \
         memset(dst, 0 , len + 1);                                           \
-        memcpy(dst, at, len);                                               \
+        memcpy(dst, src, len);                                              \
     } else {                                                                \
         old_len = strlen(dst);                                              \
         dst = realloc (dst, (old_len + len + 1) * sizeof(char));            \
         memset(dst + old_len, 0, len + 1);                                  \
         memcpy(dst + old_len, src, len);                                    \
+    }
+
+#define SET_CHARS(dst, src, len)                                            \
+    if (dst == NULL) {                                                      \
+        dst = malloc ((len + 1) * sizeof(char));                            \
+        memset(dst, 0 , len + 1);                                           \
+        memcpy(dst, src, len);                                              \
     }
 
 
@@ -96,7 +128,7 @@ typedef struct {
     parser_callbacks        *callbacks;
     http_parser             *parser;
     http_parser_settings    *settings;
-    http_header             *header;
+    http_message            *message;
     size_t                  done;
     unsigned int            in_field;
     unsigned int            have_body;
@@ -119,7 +151,9 @@ typedef struct {
 #define NEED_DECODE     (CONTEXT->need_decode)
 #define NEED_DECOMPRESS (CONTEXT->need_decompress)
 
-#define HEADER    (CONTEXT->header)
+#define MESSAGE   (CONTEXT->message)
+#define HEADER    (MESSAGE->header)
+#define BODY      (MESSAGE->body)
 #define URL       (HEADER->url)
 #define STATUS    (HEADER->status)
 #define PARAMC    (HEADER->paramc)
@@ -131,7 +165,7 @@ typedef struct {
  */
 int _on_message_begin(http_parser *parser) {
     DBG_HTTP_CALLBACK
-    CREATE_HTTP_HEADER(HEADER);
+    CREATE_HTTP_MESSAGE (MESSAGE);
     return 0;
 }
 
@@ -188,8 +222,6 @@ int _on_headers_complete(http_parser *parser) {
             break;
     }
 
-    DESTROY_HTTP_HEADER(HEADER);
-    
     return skip;
 }
 
@@ -235,7 +267,7 @@ int _on_message_complete(http_parser *parser) {
     /* Re-init parser before next message. */
     http_parser_init(parser, HTTP_BOTH);
 
-    CONTEXT->header = NULL;
+    DESTROY_HTTP_MESSAGE(MESSAGE);
     HAVE_BODY = 0;
     BODY_STARTED = 0;
     NEED_DECODE = 0;
@@ -349,3 +381,115 @@ int input(connection_id id, transfer_direction direction, const char *data,
 int close(connection_id id) {
     return 0;
 }
+
+/*
+ *  Utility methods definition:
+ */
+http_message *http_message_struct(void) {
+    http_message *message;
+    CREATE_HTTP_MESSAGE(message);
+    return message; 
+}
+
+http_header *http_header_clone(const http_header *source) {
+    http_header *header;
+    CREATE_HTTP_HEADER(header);
+    header->url = source->url;
+    header->status = source->status;
+    for (int i = 0; i < source->paramc; i++) {
+        APPEND_HTTP_HEADER_PARAM(header->paramc, header->paramv);
+        SET_CHARS(header->paramv[i].field, source->paramv[i].field,
+                     strlen(source->paramv[i].field));
+        SET_CHARS(header->paramv[i].value, source->paramv[i].value,
+                     strlen(source->paramv[i].value));
+    }
+    return header;
+}
+
+http_message *http_message_clone(const http_message *source) {
+    http_message *message;
+    CREATE_HTTP_MESSAGE_NO_HEADER(message);
+    message->header = http_header_clone(source->header);
+    if (source->body) {
+        SET_CHARS(message->body, source->body, source->body_length);
+        message->body_length = source->body_length;
+    }
+    if (source->chunkc) {
+        for (int i = 0; i < source->chunkc; i++) {
+            APPEND_HTTP_CHUNK (message->chunkc, message->chunkv);
+            message->chunkv[i].length = source->chunkv[i].length;
+            SET_CHARS(message->chunkv[i].data, source->chunkv[i].data,
+                         strlen(source->chunkv[i].data));
+        }
+    }
+    return message;
+}
+
+int http_message_set_url(http_message *message, char *url, size_t length) {
+    if (message == NULL || url == NULL) return 1;
+    SET_CHARS(message->header->url, url, length);
+    return 0;
+}
+
+int http_message_set_status(http_message *message, char *status, 
+                            size_t length) {
+    if (message == NULL || status == NULL) return 1;
+    SET_CHARS(message->header->status, status, length);
+    return 0;
+}
+
+char *http_message_get_field(http_message *message, char *field,
+                             size_t length) {
+    if (message == NULL || field == NULL || length == 0) return NULL;
+    if (message->header == NULL) return NULL;
+    for (int i = 0; i < message->header->paramc; i++) {
+        if (strncmp(message->header->paramv[i].field, field, length) == 0)
+            return message->header->paramv[i].value;
+    }
+    return NULL;
+}
+
+int http_message_add_field(http_message *message, char *field, size_t length) {
+    if (message == NULL || field == NULL || length == 0) return 1;
+    if (message->header == NULL) return 1;
+    for (int i = 0; i < message->header->paramc; i++) {
+        if (strncmp(message->header->paramv[i].field, field, length) == 0)
+            return 1;
+    }
+    APPEND_HTTP_HEADER_PARAM(message->header->paramc, message->header->paramv);
+    return 0;
+}
+
+int http_message_set_field(http_message *message, char *field, size_t f_length,
+                           char *value, size_t v_length) {
+    if (message == NULL || field == NULL || f_length == 0 ||
+        value == NULL || v_length == 0 ) return 1;
+    if (message->header == NULL) return 1;
+    for (int i = 0; i < message->header->paramc; i++) {
+        if (strncmp(message->header->paramv[i].field, field, f_length) == 0) {
+            if (message->header->paramv[i].value != NULL) {
+                free (message->header->paramv[i].value);
+                message->header->paramv[i].value = NULL;
+            }
+            SET_CHARS(message->header->paramv[i].value, value, v_length);
+            return 0;
+        }
+    }
+    return  1;
+}
+
+/*
+int http_message_del_field(http_message *message, char *field, size_t length) {
+    if (message == NULL || field == NULL || length == 0) return 1;
+    if (message->header == NULL) return 1;
+    for (int i = 0; i < message->header->paramc; i++) {
+        if (strncmp(message->header->paramv[i].field, field, length) == 0) {
+            
+            return 0;
+        }
+    }
+    return 1;
+}
+
+char *http_message_raw(const http_message *source);
+*/

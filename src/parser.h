@@ -25,6 +25,19 @@ typedef struct {
     http_header_parameter   *paramv;
 } http_header;
 
+typedef struct {
+    size_t  length;
+    char    *data;
+} http_chunk;
+
+typedef struct {
+    http_header     *header;
+    char            *body;
+    size_t          body_length;
+    unsigned int    chunkc;
+    http_chunk      *chunkv;
+} http_message;
+
 typedef unsigned long connection_id;
 
 /*  Connection is represented by two abstract endpoints, which are titled for
@@ -76,8 +89,28 @@ int close(connection_id id);
 /*
  *  Utility methods
  */
+http_message *http_message_struct(void);
 
-/*  To be continued... */
+http_header *http_header_clone(const http_header *source);
+
+http_message *http_message_clone(const http_message *source);
+
+int http_message_set_url(http_message *message, char *url, size_t length);
+
+int http_message_set_status(http_message *message, char *status, 
+                            size_t length);
+
+char *http_message_get_field(http_message *message, char *field,
+                             size_t length);
+
+int http_message_add_field(http_message *message, char *field, size_t length);
+
+int http_message_set_field(http_message *message, char *field, size_t f_length,
+                           char *value, size_t v_length);
+
+int http_message_del_field(http_message *message, char *field, size_t length);
+
+char *http_message_raw(const http_message *source);
 
 #ifdef __cplusplus
 }
