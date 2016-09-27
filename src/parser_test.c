@@ -9,18 +9,25 @@
 #include <string.h>
 
 
-#define INPUT_PORTION 1024
+#define INPUT_PORTION 10
 
 /*
  *  Helpers:
  */
+#define DBG_CALLBACK
+
+#ifndef DBG_CALLBACK
 #define DBG_CALLBACK \
      printf ("CALLBACK [%s]:\n", __FUNCTION__);
+#endif
 
 void print_header(http_header *header) {
     if (!header) return;
+    printf("\n");
+    if (header->method) printf("METHOD: %s\n", header->method);
     if (header->url) printf("URL: %s\n", header->url);
     if (header->status) printf("STATUS: %s\n", header->status);
+    if (header->status_code) printf("STATUS CODE: %d\n", header->status_code);
     for (int i = 0; i < header->paramc; i++) {
         printf ("%s: %s\n", header->paramv[i].field, header->paramv[i].value);
     }
@@ -32,16 +39,6 @@ void print_header(http_header *header) {
  */
 int request_received(connection_id id, void *data, size_t length) {
     DBG_CALLBACK
-    char *s = http_message_get_field ((http_message *)data, "Content-Type", 12);
-    if (s != NULL)
-        printf (">>>> %s <<<<\n", s);
-    else
-        printf (">>>> That's a no-no! <<<<\n");
-
-    http_message_add_field((http_message *)data, "Host1", 5);
-    http_message_set_field((http_message *)data, "Host1", 5, "1.2.3.4", 7);
-    print_header((http_header *)((http_message *)data)->header);
-    http_message_del_field((http_message *)data, "Host", 4);
     print_header((http_header *)((http_message *)data)->header);
     return 0;
 }
@@ -63,11 +60,6 @@ int request_body_finished(connection_id id, void *data, size_t length) {
 
 int response_received(connection_id id, void *data, size_t length) {
     DBG_CALLBACK
-    char *s = http_message_get_field ((http_message *)data, "Content-Type", 12);
-    if (s != NULL)
-        printf (">>>> %s <<<<\n", s);
-    else
-        printf (">>>> That's a no-no! <<<<\n");
     print_header((http_header *)((http_message *)data)->header);
     return 0;
 }

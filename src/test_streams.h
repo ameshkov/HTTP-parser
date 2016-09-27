@@ -33,6 +33,18 @@ const char *test_stream =
         "Content-Type: application/x-www-form-urlencoded\r\n"
         "Content-Length: 4\r\n"
         "\r\n"
-        "q=42\r\n";
+        "q=42\r\n"
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: text/plain\r\n"
+        "Transfer-Encoding: chunked\r\n"
+        "\r\n"
+        "25  \r\n"
+        "This is the data in the first chunk\r\n"
+        "\r\n"
+        "1C\r\n"
+        "and this is the second one\r\n"
+        "\r\n"
+        "0  \r\n"
+        "\r\n";
 
 #endif /* TEST_STREAMS_H */

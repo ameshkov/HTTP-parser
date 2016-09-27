@@ -11,6 +11,12 @@ extern "C" {
 #include <sys/types.h>
 
 /*
+ *  Globals:
+ */
+#define HTTP_VERSION_1_1    "HTTP/1.1"
+#define HTTP_VERSION        (HTTP_VERSION_1_1)
+
+/*
  *  Types:
  */
 typedef struct {
@@ -19,9 +25,10 @@ typedef struct {
 } http_header_parameter;
 
 typedef struct {
-    char *method;
-    char *url;
-    char *status;
+    char                    *method;
+    char                    *url;
+    char                    *status;
+    unsigned int            status_code;
     unsigned int            paramc;
     http_header_parameter   *paramv;
 } http_header;

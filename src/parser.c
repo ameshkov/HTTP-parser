@@ -64,6 +64,7 @@
 #define DESTROY_HTTP_HEADER(header)                                         \
     if (header->url) free(header->url);                                     \
     if (header->status) free(header->status);                               \
+    if (header->method) free(header->method);                               \
     for (int i = 0; i < header->paramc; i++) {                              \
         if (header->paramv[i].field) free(header->paramv[i].field);         \
         if (header->paramv[i].value) free(header->paramv[i].value);         \
@@ -154,14 +155,16 @@ typedef struct {
 #define NEED_DECODE     (CONTEXT->need_decode)
 #define NEED_DECOMPRESS (CONTEXT->need_decompress)
 
-#define MESSAGE   (CONTEXT->message)
-#define HEADER    (MESSAGE->header)
-#define BODY      (MESSAGE->body)
-#define METHOD    (HEADER->method)
-#define URL       (HEADER->url)
-#define STATUS    (HEADER->status)
-#define PARAMC    (HEADER->paramc)
-#define PARAMV    (HEADER->paramv)
+#define MESSAGE         (CONTEXT->message)
+#define HEADER          (MESSAGE->header)
+#define BODY            (MESSAGE->body)
+#define BODY_LENGTH     (MESSAGE->body_length)
+#define METHOD          (HEADER->method)
+#define URL             (HEADER->url)
+#define STATUS          (HEADER->status)
+#define STATUS_CODE     (HEADER->status_code)
+#define PARAMC          (HEADER->paramc)
+#define PARAMV          (HEADER->paramv)
 
 
 /*
@@ -185,6 +188,7 @@ int _on_status(http_parser *parser, const char *at, size_t length) {
     DBG_HTTP_CALLBACK_DATA
     if (at != NULL && length > 0) {
         APPEND_CHARS(STATUS, at, length);
+        STATUS_CODE = parser->status_code;
     }
     return 0;
 }
@@ -215,13 +219,12 @@ int _on_headers_complete(http_parser *parser) {
     int skip = 0;
     switch (parser->type) {
         case HTTP_REQUEST:
-
-            printf ("REQUEST: %s\n", http_method_str(parser->method));
+            SET_CHARS (METHOD, http_method_str(parser->method), 
+                       strlen(http_method_str(parser->method)));
             skip = CALLBACKS->http_request_received(ID, MESSAGE, 
                                                     sizeof(MESSAGE));
             break;
         case HTTP_RESPONSE:
-            printf ("RESPONSE: %s\n", http_method_str(parser->method));
             skip = CALLBACKS->http_response_received(ID, MESSAGE, 
                                                      sizeof(MESSAGE));
             break;
@@ -235,6 +238,8 @@ int _on_headers_complete(http_parser *parser) {
 int _on_body(http_parser *parser, const char *at, size_t length) {
     DBG_HTTP_CALLBACK_DATA
     HAVE_BODY = 1;
+    APPEND_CHARS(BODY, at, length);
+    BODY_LENGTH+=length;
     switch (parser->type) {
         case HTTP_REQUEST:
             if (BODY_STARTED == 0) {
@@ -288,10 +293,12 @@ int _on_chunk_header(http_parser *parser) {
     if (BODY_STARTED == 0) {
         switch (parser->type) {
             case HTTP_REQUEST:
-                CALLBACKS->http_request_body_started(ID, NULL, 0);
+                NEED_DECODE = 
+                    CALLBACKS->http_request_body_started(ID, NULL, 0);
                 break;
             case HTTP_RESPONSE:
-                CALLBACKS->http_response_body_started(ID, NULL, 0);
+                NEED_DECODE = 
+                    CALLBACKS->http_response_body_started(ID, NULL, 0);
                 break;
             default:
                 break;
@@ -401,8 +408,9 @@ http_message *http_message_struct(void) {
 http_header *http_header_clone(const http_header *source) {
     http_header *header;
     CREATE_HTTP_HEADER(header);
-    header->url = source->url;
-    header->status = source->status;
+    SET_CHARS(header->url, source->url, strlen(source->url));
+    SET_CHARS(header->status, source->status, strlen(source->status));
+    SET_CHARS(header->method, source->method, strlen(source->method));
     for (int i = 0; i < source->paramc; i++) {
         APPEND_HTTP_HEADER_PARAM(header->paramc, header->paramv);
         SET_CHARS(header->paramv[i].field, source->paramv[i].field,
