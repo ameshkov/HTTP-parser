@@ -37,6 +37,9 @@
 
 #   define DBG_PARSER_TYPE                                                  \
         printf ("DEBUG: Parser type: %d\n", parser->type);
+
+#   define DBG_PARSER_METHOD                                                \
+        printf ("DEBUG: Parser type: %d\n", parser->method);
 #endif
 
 /*
@@ -154,6 +157,7 @@ typedef struct {
 #define MESSAGE   (CONTEXT->message)
 #define HEADER    (MESSAGE->header)
 #define BODY      (MESSAGE->body)
+#define METHOD    (HEADER->method)
 #define URL       (HEADER->url)
 #define STATUS    (HEADER->status)
 #define PARAMC    (HEADER->paramc)
@@ -211,12 +215,15 @@ int _on_headers_complete(http_parser *parser) {
     int skip = 0;
     switch (parser->type) {
         case HTTP_REQUEST:
-            skip = CALLBACKS->http_request_received(ID, HEADER, 
-                                                    sizeof(HEADER));
+
+            printf ("REQUEST: %s\n", http_method_str(parser->method));
+            skip = CALLBACKS->http_request_received(ID, MESSAGE, 
+                                                    sizeof(MESSAGE));
             break;
         case HTTP_RESPONSE:
-            skip = CALLBACKS->http_response_received(ID, HEADER, 
-                                                     sizeof(HEADER));
+            printf ("RESPONSE: %s\n", http_method_str(parser->method));
+            skip = CALLBACKS->http_response_received(ID, MESSAGE, 
+                                                     sizeof(MESSAGE));
             break;
         default:
             break;
@@ -457,6 +464,8 @@ int http_message_add_field(http_message *message, char *field, size_t length) {
             return 1;
     }
     APPEND_HTTP_HEADER_PARAM(message->header->paramc, message->header->paramv);
+    APPEND_CHARS(message->header->paramv[message->header->paramc - 1].field,
+                 field, length);
     return 0;
 }
 
@@ -478,18 +487,33 @@ int http_message_set_field(http_message *message, char *field, size_t f_length,
     return  1;
 }
 
-/*
 int http_message_del_field(http_message *message, char *field, size_t length) {
     if (message == NULL || field == NULL || length == 0) return 1;
     if (message->header == NULL) return 1;
     for (int i = 0; i < message->header->paramc; i++) {
         if (strncmp(message->header->paramv[i].field, field, length) == 0) {
-            
+            free (message->header->paramv[i].field);
+            free (message->header->paramv[i].value);
+            for (int j = i + 1; j < message->header->paramc; j++) {
+                message->header->paramv[j -1 ].field = 
+                    message->header->paramv[j].field;
+                message->header->paramv[j -1 ].value = 
+                    message->header->paramv[j].value;
+            }
+            message->header->paramc--;
+            message->header->paramv = 
+                realloc(message->header->paramv,
+                        message->header->paramc * sizeof(http_header_parameter));
             return 0;
         }
     }
     return 1;
 }
 
-char *http_message_raw(const http_message *source);
+/*
+char *http_message_raw(const http_message *source) {
+    if (source == NULL) return NULL;
+    if (source->header == NULL) return NULL;
+    
+}
 */

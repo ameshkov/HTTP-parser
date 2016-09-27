@@ -19,6 +19,7 @@ typedef struct {
 } http_header_parameter;
 
 typedef struct {
+    char *method;
     char *url;
     char *status;
     unsigned int            paramc;

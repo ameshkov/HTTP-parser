@@ -32,7 +32,17 @@ void print_header(http_header *header) {
  */
 int request_received(connection_id id, void *data, size_t length) {
     DBG_CALLBACK
-    print_header((http_header *)data);
+    char *s = http_message_get_field ((http_message *)data, "Content-Type", 12);
+    if (s != NULL)
+        printf (">>>> %s <<<<\n", s);
+    else
+        printf (">>>> That's a no-no! <<<<\n");
+
+    http_message_add_field((http_message *)data, "Host1", 5);
+    http_message_set_field((http_message *)data, "Host1", 5, "1.2.3.4", 7);
+    print_header((http_header *)((http_message *)data)->header);
+    http_message_del_field((http_message *)data, "Host", 4);
+    print_header((http_header *)((http_message *)data)->header);
     return 0;
 }
 
@@ -53,7 +63,12 @@ int request_body_finished(connection_id id, void *data, size_t length) {
 
 int response_received(connection_id id, void *data, size_t length) {
     DBG_CALLBACK
-    print_header((http_header *)data);
+    char *s = http_message_get_field ((http_message *)data, "Content-Type", 12);
+    if (s != NULL)
+        printf (">>>> %s <<<<\n", s);
+    else
+        printf (">>>> That's a no-no! <<<<\n");
+    print_header((http_header *)((http_message *)data)->header);
     return 0;
 }
 

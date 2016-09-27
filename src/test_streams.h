@@ -27,6 +27,12 @@ const char *test_stream =
         "User-Agent: curl/7.18.0 (i486-pc-linux-gnu) libcurl/7.18.0 OpenSSL/0.9.8g zlib/1.2.3.3 libidn/1.1\r\n"
         "Host: 0.0.0.0=5000\r\n"
         "Accept: */*\r\n"
-        "\r\n";
+        "\r\n"
+        "POST / HTTP/1.1\r\n"
+        "Host: www.example.com\r\n"
+        "Content-Type: application/x-www-form-urlencoded\r\n"
+        "Content-Length: 4\r\n"
+        "\r\n"
+        "q=42\r\n";
 
 #endif /* TEST_STREAMS_H */
