@@ -78,6 +78,7 @@
         DESTROY_HTTP_HEADER(message->header);                               \
         if (message->body) free(message->body);                             \
         message->body = NULL;                                               \
+        if (message->chunkv) free(message->chunkv);                         \
         free(message);                                                      \
         message = NULL;                                                     \
     }
@@ -92,15 +93,14 @@
         memset(&(paramv[paramc - 1]), 0, sizeof(http_header_parameter));    \
     }
 
-#define APPEND_HTTP_CHUNK(chunkc, chunkv)                                   \
+#define APPEND_HTTP_CHUNK(chunkc, chunkv, value)                            \
     chunkc++;                                                               \
     if (chunkv == NULL) {                                                   \
-        chunkv = malloc(sizeof(http_chunk));                                \
-        memset(chunkv, 0, sizeof(http_chunk));                              \
+        chunkv = malloc(sizeof(unsigned long));                              \
     } else {                                                                \
-        chunkv = realloc(chunkv, chunkc * sizeof(http_chunk));              \
-        memset(&(chunkv[chunkc - 1]), 0, sizeof(http_chunk));               \
-    }
+        chunkv = realloc(chunkv, chunkc * sizeof(unsigned long));            \
+    }                                                                       \
+    chunkv[chunkc - 1] = value;
 
 #define APPEND_CHARS(dst, src, len)                                         \
     size_t old_len;                                                         \
@@ -159,6 +159,8 @@ typedef struct {
 #define HEADER          (MESSAGE->header)
 #define BODY            (MESSAGE->body)
 #define BODY_LENGTH     (MESSAGE->body_length)
+#define CHUNKC          (MESSAGE->chunkc)
+#define CHUNKV          (MESSAGE->chunkv)
 #define METHOD          (HEADER->method)
 #define URL             (HEADER->url)
 #define STATUS          (HEADER->status)
@@ -292,6 +294,7 @@ int _on_message_complete(http_parser *parser) {
 
 int _on_chunk_header(http_parser *parser) {
     DBG_HTTP_CALLBACK
+    APPEND_HTTP_CHUNK(CHUNKC, CHUNKV, parser->content_length);
     if (BODY_STARTED == 0) {
         switch (parser->type) {
             case HTTP_REQUEST:
@@ -436,12 +439,10 @@ http_message *http_message_clone(const http_message *source) {
         message->body_length = source->body_length;
     }
     if (source->chunkc) {
-        for (int i = 0; i < source->chunkc; i++) {
-            APPEND_HTTP_CHUNK (message->chunkc, message->chunkv);
-            message->chunkv[i].length = source->chunkv[i].length;
-            SET_CHARS(message->chunkv[i].data, source->chunkv[i].data,
-                         strlen(source->chunkv[i].data));
-        }
+        message->chunkc = source->chunkc;
+        message->chunkv = malloc(message->chunkc * sizeof(unsigned long));
+        memcpy (message->chunkv, source->chunkv,
+                message->chunkc * sizeof(unsigned long));
     }
     return message;
 }

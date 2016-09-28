@@ -9,7 +9,7 @@
 #include <string.h>
 
 
-#define INPUT_PORTION 10
+#define INPUT_PORTION 1
 
 http_message *saved_messages[100];
 unsigned int num_messages = 0;
@@ -34,6 +34,13 @@ void print_header(http_header *header) {
     for (int i = 0; i < header->paramc; i++) {
         printf ("%s: %s\n", header->paramv[i].field, header->paramv[i].value);
     }
+    return;
+}
+
+void print_message(http_message *message) {
+    if (!message) return;
+    print_header(message->header);
+    if (message->body) printf("BODY:%s\n", message->body);
     return;
 }
 
@@ -114,7 +121,7 @@ int main(int argc, char **argv) {
     } while ((pos += INPUT_PORTION) < length);
 
     for (int i = 0; i < num_messages; i++) {
-        print_header(saved_messages[i]->header);
+        print_message(saved_messages[i]);
     }
     return 0;
 }

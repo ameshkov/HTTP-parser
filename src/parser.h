@@ -33,17 +33,13 @@ typedef struct {
     http_header_parameter   *paramv;
 } http_header;
 
-typedef struct {
-    size_t  length;
-    char    *data;
-} http_chunk;
 
 typedef struct {
     http_header     *header;
     char            *body;
     size_t          body_length;
-    unsigned int    chunkc;
-    http_chunk      *chunkv;
+    unsigned long   chunkc;
+    unsigned long   *chunkv;
 } http_message;
 
 typedef unsigned long connection_id;
