@@ -630,21 +630,21 @@ int http_message_decompress(http_message *message) {
     int uncompress_result;
     if (message == NULL) return 1;
     if (message->body == NULL || message->body_length == 0) return 1;
-    if (message->decompressed_body != NULL) free(message->decompressed_body);
+    if (message->dec_body != NULL) free(message->dec_body);
     
-    message->decompressed_body_length = 0;
-    message->decompressed_body = malloc (sizeof(char));
-    uncompress_result = uncompress(message->decompressed_body,
-                                   &(message->decompressed_body_length),
+    message->dec_body_length = 0;
+    message->dec_body = malloc (sizeof(char));
+    uncompress_result = uncompress(message->dec_body,
+                                   &(message->dec_body_length),
                                    message->body, message->body_length);
 
     if (uncompress_result == Z_BUF_ERROR) {
-        message->decompressed_body = 
-            realloc (message->decompressed_body,
-                     message->decompressed_body_length + 1);
-            message->decompressed_body[message->decompressed_body_length] = 0;
-            uncompress_result = uncompress(message->decompressed_body,
-                                           &(message->decompressed_body_length),
+        message->dec_body = 
+            realloc (message->dec_body,
+                     message->dec_body_length + 1);
+            message->dec_body[message->dec_body_length] = 0;
+            uncompress_result = uncompress(message->dec_body,
+                                           &(message->dec_body_length),
                                            message->body, message->body_length);
             if (uncompress_result == Z_OK) return 0;
     }

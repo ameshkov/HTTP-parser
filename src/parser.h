@@ -40,8 +40,8 @@ typedef struct {
     size_t          body_length;
     unsigned long   chunkc;
     size_t         *chunkv;
-    char            *decompressed_body;
-    size_t          decompressed_body_length;
+    char            *dec_body;
+    size_t          dec_body_length;
 } http_message;
 
 typedef unsigned long connection_id;
