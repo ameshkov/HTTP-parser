@@ -447,45 +447,43 @@ http_message *http_message_clone(const http_message *source) {
     return message;
 }
 
-int http_message_set_url(http_message *message, char *url, size_t length) {
+int http_message_set_method(http_message *message,
+                            const char *method, size_t length) {
+    if (message == NULL || method == NULL) return 1;
+    if (message->header == NULL) return 1;
+    if (message->header->method) free(message->header->method);
+    SET_CHARS(message->header->method, method, length);
+    return 0;
+}
+
+int http_message_set_url(http_message *message,
+                         const char *url, size_t length) {
     if (message == NULL || url == NULL) return 1;
+    if (message->header == NULL) return 1;
+    if (message->header->url) free(message->header->url);
     SET_CHARS(message->header->url, url, length);
     return 0;
 }
 
-int http_message_set_status(http_message *message, char *status, 
-                            size_t length) {
+int http_message_set_status(http_message *message,
+                            const char *status, size_t length) {
     if (message == NULL || status == NULL) return 1;
+    if (message->header == NULL) return 1;
+    if (message->header->status) free(message->header->status);
     SET_CHARS(message->header->status, status, length);
     return 0;
 }
 
-char *http_message_get_field(http_message *message, char *field,
-                             size_t length) {
-    if (message == NULL || field == NULL || length == 0) return NULL;
-    if (message->header == NULL) return NULL;
-    for (int i = 0; i < message->header->paramc; i++) {
-        if (strncmp(message->header->paramv[i].field, field, length) == 0)
-            return message->header->paramv[i].value;
-    }
-    return NULL;
-}
-
-int http_message_add_field(http_message *message, char *field, size_t length) {
-    if (message == NULL || field == NULL || length == 0) return 1;
+int http_message_set_status_code(http_message *message, int status_code) {
+    if (message == NULL) return 1;
     if (message->header == NULL) return 1;
-    for (int i = 0; i < message->header->paramc; i++) {
-        if (strncmp(message->header->paramv[i].field, field, length) == 0)
-            return 1;
-    }
-    APPEND_HTTP_HEADER_PARAM(message->header->paramc, message->header->paramv);
-    APPEND_CHARS(message->header->paramv[message->header->paramc - 1].field,
-                 field, length);
+    message->header->status_code = status_code;
     return 0;
 }
 
-int http_message_set_field(http_message *message, char *field, size_t f_length,
-                           char *value, size_t v_length) {
+int http_message_set_field(http_message *message, 
+                           const char *field, size_t f_length,
+                           const char *value, size_t v_length) {
     if (message == NULL || field == NULL || f_length == 0 ||
         value == NULL || v_length == 0 ) return 1;
     if (message->header == NULL) return 1;
@@ -502,7 +500,37 @@ int http_message_set_field(http_message *message, char *field, size_t f_length,
     return  1;
 }
 
-int http_message_del_field(http_message *message, char *field, size_t length) {
+char *http_message_get_field(const http_message *message,
+                             const char *field, size_t length) {
+    char *value;
+    if (message == NULL || field == NULL || length == 0) return NULL;
+    if (message->header == NULL) return NULL;
+    for (int i = 0; i < message->header->paramc; i++) {
+        if (strncmp(message->header->paramv[i].field, field, length) == 0) {
+            SET_CHARS(value, message->header->paramv[i].value,
+                      strlen(message->header->paramv[i].value));
+            return value;
+        }
+    }
+    return NULL;
+}
+
+int http_message_add_field(http_message *message,
+                           const char *field, size_t length) {
+    if (message == NULL || field == NULL || length == 0) return 1;
+    if (message->header == NULL) return 1;
+    for (int i = 0; i < message->header->paramc; i++) {
+        if (strncmp(message->header->paramv[i].field, field, length) == 0)
+            return 1;
+    }
+    APPEND_HTTP_HEADER_PARAM(message->header->paramc, message->header->paramv);
+    APPEND_CHARS(message->header->paramv[message->header->paramc - 1].field,
+                 field, length);
+    return 0;
+}
+
+int http_message_del_field(http_message *message,
+                           const char *field, size_t length) {
     if (message == NULL || field == NULL || length == 0) return 1;
     if (message->header == NULL) return 1;
     for (int i = 0; i < message->header->paramc; i++) {
