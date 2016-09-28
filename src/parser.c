@@ -2,12 +2,14 @@
  *  HTTP parser internals.
  *  Based on http parser API from Node.js project. 
  */
-#include "nodejs_http_parser/http_parser.h"
-#include "parser.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "nodejs_http_parser/http_parser.h"
+#include "parser.h"
+
+#include "../zlib/zlib.h"
 
 /*
  *  Debug helpers:
@@ -96,9 +98,9 @@
 #define APPEND_HTTP_CHUNK(chunkc, chunkv, value)                            \
     chunkc++;                                                               \
     if (chunkv == NULL) {                                                   \
-        chunkv = malloc(sizeof(unsigned long));                              \
+        chunkv = malloc(sizeof(size_t));                              \
     } else {                                                                \
-        chunkv = realloc(chunkv, chunkc * sizeof(unsigned long));            \
+        chunkv = realloc(chunkv, chunkc * sizeof(size_t));            \
     }                                                                       \
     chunkv[chunkc - 1] = value;
 
@@ -397,7 +399,7 @@ int input(connection_id id, transfer_direction direction, const char *data,
     return 0;
 }
 
-int close(connection_id id) {
+int connection_close(connection_id id) {
     return 0;
 }
 
@@ -440,9 +442,9 @@ http_message *http_message_clone(const http_message *source) {
     }
     if (source->chunkc) {
         message->chunkc = source->chunkc;
-        message->chunkv = malloc(message->chunkc * sizeof(unsigned long));
+        message->chunkv = malloc(message->chunkc * sizeof(size_t));
         memcpy (message->chunkv, source->chunkv,
-                message->chunkc * sizeof(unsigned long));
+                message->chunkc * sizeof(size_t));
     }
     return message;
 }
@@ -618,11 +620,33 @@ char *http_message_raw(const http_message *message) {
             chunk_offset += message->chunkv[i];
             length += line_length;
         }
-       // out_buffer = realloc (out_buffer, (length + 3) * sizeof(char));
-        //sprintf (out_buffer + length, "\r\n");
     }
 
     return out_buffer;
 } 
-/* 
-*/
+
+
+int http_message_decompress(http_message *message) {
+    int uncompress_result;
+    if (message == NULL) return 1;
+    if (message->body == NULL || message->body_length == 0) return 1;
+    if (message->decompressed_body != NULL) free(message->decompressed_body);
+    
+    message->decompressed_body_length = 0;
+    message->decompressed_body = malloc (sizeof(char));
+    uncompress_result = uncompress(message->decompressed_body,
+                                   &(message->decompressed_body_length),
+                                   message->body, message->body_length);
+
+    if (uncompress_result == Z_BUF_ERROR) {
+        message->decompressed_body = 
+            realloc (message->decompressed_body,
+                     message->decompressed_body_length + 1);
+            message->decompressed_body[message->decompressed_body_length] = 0;
+            uncompress_result = uncompress(message->decompressed_body,
+                                           &(message->decompressed_body_length),
+                                           message->body, message->body_length);
+            if (uncompress_result == Z_OK) return 0;
+    }
+    return 1;
+}

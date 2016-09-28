@@ -39,7 +39,9 @@ typedef struct {
     char            *body;
     size_t          body_length;
     unsigned long   chunkc;
-    unsigned long   *chunkv;
+    size_t         *chunkv;
+    char            *decompressed_body;
+    size_t          decompressed_body_length;
 } http_message;
 
 typedef unsigned long connection_id;
@@ -88,7 +90,7 @@ int disconnect(connection_id id, transfer_direction direction);
 int input(connection_id id, transfer_direction direction, const char *data,
           size_t length);
 
-int close(connection_id id);
+int connection_close(connection_id id);
 
 /*
  *  Utility methods
