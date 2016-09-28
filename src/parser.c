@@ -266,10 +266,12 @@ int _on_message_complete(http_parser *parser) {
     if (HAVE_BODY) {
         switch (parser->type) {
             case HTTP_REQUEST:
-                CALLBACKS->http_request_body_finished(ID, NULL, 0);
+                CALLBACKS->http_request_body_finished(ID, MESSAGE,
+                                                      sizeof(MESSAGE));
                 break;
             case HTTP_RESPONSE:
-                CALLBACKS->http_response_body_finished(ID, NULL, 0);
+                CALLBACKS->http_response_body_finished(ID, MESSAGE,
+                                                       sizeof(MESSAGE));
                 break;
             default:
                 break;
@@ -408,9 +410,13 @@ http_message *http_message_struct(void) {
 http_header *http_header_clone(const http_header *source) {
     http_header *header;
     CREATE_HTTP_HEADER(header);
-    SET_CHARS(header->url, source->url, strlen(source->url));
-    SET_CHARS(header->status, source->status, strlen(source->status));
-    SET_CHARS(header->method, source->method, strlen(source->method));
+    if (source->url != NULL)
+        SET_CHARS(header->url, source->url, strlen(source->url));
+    if (source->status != NULL)
+        SET_CHARS(header->status, source->status, strlen(source->status));
+    if (source->method != NULL)
+        SET_CHARS(header->method, source->method, strlen(source->method));
+    header->status_code = source->status_code;
     for (int i = 0; i < source->paramc; i++) {
         APPEND_HTTP_HEADER_PARAM(header->paramc, header->paramv);
         SET_CHARS(header->paramv[i].field, source->paramv[i].field,

@@ -11,6 +11,9 @@
 
 #define INPUT_PORTION 10
 
+http_message *saved_messages[100];
+unsigned int num_messages = 0;
+
 /*
  *  Helpers:
  */
@@ -39,7 +42,7 @@ void print_header(http_header *header) {
  */
 int request_received(connection_id id, void *data, size_t length) {
     DBG_CALLBACK
-    print_header((http_header *)((http_message *)data)->header);
+    //print_header((http_header *)((http_message *)data)->header);
     return 0;
 }
 
@@ -55,12 +58,16 @@ int request_body_data(connection_id id, void *data, size_t length) {
 
 int request_body_finished(connection_id id, void *data, size_t length) {
     DBG_CALLBACK
+    saved_messages[num_messages]=
+        http_message_clone((http_message *)data);
+    num_messages++;
+    //printf ("BODY:\n%s\n", (http_header *)((http_message *)data)->body);
     return 0;
 }
 
 int response_received(connection_id id, void *data, size_t length) {
     DBG_CALLBACK
-    print_header((http_header *)((http_message *)data)->header);
+    //print_header((http_header *)((http_message *)data)->header);
     return 0;
 }
 
@@ -76,6 +83,10 @@ int response_body_data(connection_id id, void *data, size_t length) {
 
 int response_body_finished(connection_id id, void *data, size_t length) {
     DBG_CALLBACK
+    saved_messages[num_messages]=
+        http_message_clone((http_message *)data);
+    num_messages++;
+    //printf ("BODY:\n%s\n", (http_header *)((http_message *)data)->body);
     return 0;
 }
 
@@ -102,5 +113,8 @@ int main(int argc, char **argv) {
         input (1, 1, test_stream + pos, INPUT_PORTION);
     } while ((pos += INPUT_PORTION) < length);
 
+    for (int i = 0; i < num_messages; i++) {
+        print_header(saved_messages[i]->header);
+    }
     return 0;
 }
