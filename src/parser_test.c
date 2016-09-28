@@ -121,7 +121,7 @@ int main(int argc, char **argv) {
     } while ((pos += INPUT_PORTION) < length);
 
     for (int i = 0; i < num_messages; i++) {
-        printf("%s\n", http_message_raw(saved_messages[i]));
+        printf("%s", http_message_raw(saved_messages[i]));
         //print_message(saved_messages[i]);
     }
     return 0;

@@ -570,6 +570,7 @@ char *http_message_raw(const http_message *message) {
         out_buffer = realloc (out_buffer,
                               (length + line_length + 1) * sizeof(char));
         sprintf (out_buffer + length, "%s\r\n\r\n", message->body);
+        length += line_length;
     } else {
         for (int i = 0; i < message->chunkc; i++) {
             memset(chunk_length_hex, 0, HEX_ULONG_CSTRING_SIZE * sizeof(char));
@@ -589,10 +590,9 @@ char *http_message_raw(const http_message *message) {
             chunk_offset += message->chunkv[i];
             length += line_length;
         }
+       // out_buffer = realloc (out_buffer, (length + 3) * sizeof(char));
+        //sprintf (out_buffer + length, "\r\n");
     }
-
-    out_buffer = realloc (out_buffer, (length + 3) * sizeof(char));
-    sprintf (out_buffer + length, "\r\n");
 
     return out_buffer;
 } 
