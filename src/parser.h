@@ -114,7 +114,7 @@ int http_message_set_field(http_message *message, char *field, size_t f_length,
 
 int http_message_del_field(http_message *message, char *field, size_t length);
 
-char *http_message_raw(const http_message *source);
+char *http_message_raw(const http_message *message);
 
 #ifdef __cplusplus
 }

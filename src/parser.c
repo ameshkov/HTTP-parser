@@ -525,10 +525,76 @@ int http_message_del_field(http_message *message, char *field, size_t length) {
     return 1;
 }
 
-/*
-char *http_message_raw(const http_message *source) {
-    if (source == NULL) return NULL;
-    if (source->header == NULL) return NULL;
+#define HEX_ULONG_CSTRING_SIZE 17
+
+char *http_message_raw(const http_message *message) {
+    char *out_buffer, chunk_length_hex[HEX_ULONG_CSTRING_SIZE], *chunk;
+    int length, line_length, chunk_offset = 0;
     
-}
+    if (message == NULL) return NULL;
+    if (message->header == NULL) return NULL;
+
+    if (message->header->status && message->header->status_code) {
+        length = strlen(HTTP_VERSION) + strlen(message->header->status) + 7;
+        out_buffer = malloc((length + 1)* sizeof(char));
+        memset (out_buffer, 0, (length + 1) * sizeof(char));
+        sprintf(out_buffer, "%s %d %s\r\n",
+                HTTP_VERSION, message->header->status_code,
+                message->header->status);
+    } else {
+        length = strlen(HTTP_VERSION) + strlen(message->header->url) + 
+                 strlen(message->header->method) + 4;
+        out_buffer = malloc((length + 1)* sizeof(char));
+        memset (out_buffer, 0, (length + 1) * sizeof(char));
+        sprintf(out_buffer, "%s %s %s\r\n",
+                message->header->method, message->header->url, HTTP_VERSION);
+    }
+
+    for (int i = 0; i < message->header->paramc; i++) {
+        line_length = strlen(message->header->paramv[i].field) + 
+                      strlen(message->header->paramv[i].value) + 4;
+        out_buffer = realloc (out_buffer,
+                              (length + line_length + 1) * sizeof(char));
+        sprintf (out_buffer + length, "%s: %s\r\n", 
+                 message->header->paramv[i].field,
+                 message->header->paramv[i].value);
+        length += line_length;
+    }
+
+    out_buffer = realloc (out_buffer, (length + 3) * sizeof(char));
+    sprintf (out_buffer + length, "\r\n");
+    length += 2;
+
+    if (!message->chunkv && !message->chunkc) {
+        line_length = message->body_length + 4;
+        out_buffer = realloc (out_buffer,
+                              (length + line_length + 1) * sizeof(char));
+        sprintf (out_buffer + length, "%s\r\n\r\n", message->body);
+    } else {
+        for (int i = 0; i < message->chunkc; i++) {
+            memset(chunk_length_hex, 0, HEX_ULONG_CSTRING_SIZE * sizeof(char));
+            sprintf(chunk_length_hex, "%lX", message->chunkv[i]);
+
+            chunk = malloc((message->chunkv[i] + 1) * sizeof(char));
+            memset(chunk, 0, message->chunkv[i] + 1);
+            memcpy(chunk, message->body + chunk_offset, 
+                   message->chunkv[i] * sizeof(char));
+
+            line_length = strlen(chunk_length_hex) + message->chunkv[i] + 4;
+            out_buffer = realloc (out_buffer,
+                                  (length + line_length + 1) * sizeof(char));
+            sprintf (out_buffer + length, "%s\r\n%s\r\n",
+                     chunk_length_hex, chunk);
+
+            chunk_offset += message->chunkv[i];
+            length += line_length;
+        }
+    }
+
+    out_buffer = realloc (out_buffer, (length + 3) * sizeof(char));
+    sprintf (out_buffer + length, "\r\n");
+
+    return out_buffer;
+} 
+/* 
 */
