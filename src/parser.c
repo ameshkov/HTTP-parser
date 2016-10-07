@@ -349,7 +349,7 @@ connection_context *context = NULL;
 /*
  *  API implementaion:
  */
-int connect(connection_id id, connection_info *info,
+int parser_connect(connection_id id, connection_info *info,
             parser_callbacks *callbacks) {
     context = malloc(sizeof(connection_context));
     memset (context, 0, sizeof(connection_context));
@@ -368,13 +368,13 @@ int connect(connection_id id, connection_info *info,
     return 0;
 }
 
-int disconnect(connection_id id, transfer_direction direction) {
+int parser_disconnect(connection_id id, transfer_direction direction) {
     return 0;
 }
 
 #define INPUT_LENGTH_AT_ERROR 1
 
-int input(connection_id id, transfer_direction direction, const char *data,
+int parser_input(connection_id id, transfer_direction direction, const char *data,
           size_t length) {
     length = strnlen(data, length);
     context->done = 0;
@@ -399,7 +399,7 @@ int input(connection_id id, transfer_direction direction, const char *data,
     return 0;
 }
 
-int connection_close(connection_id id) {
+int parser_connection_close(connection_id id) {
     return 0;
 }
 

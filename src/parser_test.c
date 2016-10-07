@@ -114,10 +114,10 @@ int main(int argc, char **argv) {
     int pos = 0, length = strlen (test_stream);
     parser_callbacks *callbacks = &test_callbacks; 
 
-    connect (1, NULL, callbacks);
+    parser_connect (1, NULL, callbacks);
 
     do {
-        input (1, 1, test_stream + pos, INPUT_PORTION);
+        parser_input (1, 1, test_stream + pos, INPUT_PORTION);
     } while ((pos += INPUT_PORTION) < length);
 
     for (int i = 0; i < num_messages; i++) {

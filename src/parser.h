@@ -82,15 +82,15 @@ typedef struct {
 /*
  *  General parser interface:
  */
-int connect(connection_id id, connection_info *info,
+int parser_connect(connection_id id, connection_info *info,
             parser_callbacks *callbacks);
 
-int disconnect(connection_id id, transfer_direction direction);
+int parser_disconnect(connection_id id, transfer_direction direction);
 
-int input(connection_id id, transfer_direction direction, const char *data,
+int parser_input(connection_id id, transfer_direction direction, const char *data,
           size_t length);
 
-int connection_close(connection_id id);
+int parser_connection_close(connection_id id);
 
 /*
  *  Utility methods
